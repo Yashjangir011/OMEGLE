@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useAuth } from '../../contexts/AuthContext';
+import { signupSchema, type SignupFormData } from '../../schemas/authSchema';
 
 interface SignupPageProps {
   onSwitchToLogin: () => void;
 }
 
 function Signup_page({ onSwitchToLogin }: SignupPageProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignupFormData>({
     username: '',
     email: '',
     password: '',
@@ -15,22 +16,25 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
     age: '',
     state: '',
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Partial<Record<keyof SignupFormData, string>>>({});
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setErrors({});
 
-    // Validation
-    if (formData.password !== formData.confirm_password) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!formData.username || !formData.email || !formData.password || !formData.sex || !formData.age || !formData.state) {
-      setError('All fields are required');
+    // Validate with Zod
+    const validation = signupSchema.safeParse(formData);
+    
+    if (!validation.success) {
+      const fieldErrors: Partial<Record<keyof SignupFormData, string>> = {};
+      validation.error.issues.forEach((error) => {
+        if (error.path[0]) {
+          fieldErrors[error.path[0] as keyof SignupFormData] = error.message;
+        }
+      });
+      setErrors(fieldErrors);
       return;
     }
 
@@ -48,20 +52,29 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
 
       const success = await register(userData);
       if (!success) {
-        setError('Registration failed. Email might already exist.');
+        setErrors({ email: 'Registration failed. Email might already exist.' });
       }
     } catch (error) {
-      setError('Registration failed. Please try again.');
+      setErrors({ email: 'Registration failed. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+    
+    // Clear error for this field when user starts typing
+    if (errors[name as keyof SignupFormData]) {
+      setErrors({
+        ...errors,
+        [name]: undefined,
+      });
+    }
   };
 
   return (
@@ -71,11 +84,6 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
           Sign Up
         </h2>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Username */}
@@ -93,9 +101,15 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.username}
               onChange={handleChange}
               placeholder="Enter your username"
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.username 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+            )}
           </div>
 
           {/* Email */}
@@ -110,9 +124,15 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter your email"
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.email 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+            )}
           </div>
 
           {/* Password */}
@@ -130,9 +150,15 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.password}
               onChange={handleChange}
               placeholder="Enter your password"
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.password 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+            )}
           </div>
 
           {/* Confirm Password */}
@@ -150,9 +176,15 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.confirm_password}
               onChange={handleChange}
               placeholder="Confirm your password"
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.confirm_password 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.confirm_password && (
+              <p className="mt-1 text-sm text-red-600">{errors.confirm_password}</p>
+            )}
           </div>
 
           {/* Sex */}
@@ -165,14 +197,20 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               name="sex"
               value={formData.sex}
               onChange={handleChange}
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.sex 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             >
               <option value="">Select</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Other">Other</option>
             </select>
+            {errors.sex && (
+              <p className="mt-1 text-sm text-red-600">{errors.sex}</p>
+            )}
           </div>
 
           {/* Age */}
@@ -187,11 +225,17 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.age}
               onChange={handleChange}
               placeholder="Enter your age"
-              required
               min="1"
               max="120"
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.age 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.age && (
+              <p className="mt-1 text-sm text-red-600">{errors.age}</p>
+            )}
           </div>
 
           {/* State */}
@@ -206,9 +250,15 @@ function Signup_page({ onSwitchToLogin }: SignupPageProps) {
               value={formData.state}
               onChange={handleChange}
               placeholder="Enter your state"
-              required
-              className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:ring-gray-200 focus:outline-none"
+              className={`w-full px-4 py-2 rounded-xl border bg-white text-gray-700 placeholder-gray-400 shadow-sm focus:ring-2 focus:outline-none ${
+                errors.state 
+                  ? 'border-red-400 focus:ring-red-200' 
+                  : 'border-gray-200 focus:ring-gray-200'
+              }`}
             />
+            {errors.state && (
+              <p className="mt-1 text-sm text-red-600">{errors.state}</p>
+            )}
           </div>
 
           {/* Button */}
