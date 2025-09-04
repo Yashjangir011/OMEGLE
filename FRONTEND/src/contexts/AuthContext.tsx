@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = 'http://localhost:3000/api/auth';
+  const API_BASE = 'https://omegleeyy.onrender.com';
 
   // Check if user is authenticated on app load
   const checkAuth = async () => {
