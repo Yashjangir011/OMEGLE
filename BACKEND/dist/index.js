@@ -25,22 +25,74 @@ const io = new socket_io_1.Server(server, {
         credentials: true,
     },
 });
+// Simple matchmaking state
+const waitingQueue = [];
+const partnerBySocket = new Map();
+function removeFromQueue(socketId) {
+    const idx = waitingQueue.indexOf(socketId);
+    if (idx !== -1)
+        waitingQueue.splice(idx, 1);
+}
+function pairSockets(a, b) {
+    partnerBySocket.set(a, b);
+    partnerBySocket.set(b, a);
+    io.to(a).emit("partner-found", { partnerId: b });
+    io.to(b).emit("partner-found", { partnerId: a });
+}
+function tryMatch(socketId) {
+    // Remove self if already in queue
+    removeFromQueue(socketId);
+    // Find another waiting user
+    const partnerId = waitingQueue.find((id) => id !== socketId);
+    if (partnerId) {
+        removeFromQueue(partnerId);
+        pairSockets(socketId, partnerId);
+    }
+    else {
+        waitingQueue.push(socketId);
+        io.to(socketId).emit("queueing");
+    }
+}
+function endPair(socketId, notifyPartner = true) {
+    const partnerId = partnerBySocket.get(socketId);
+    if (!partnerId)
+        return;
+    partnerBySocket.delete(socketId);
+    partnerBySocket.delete(partnerId);
+    if (notifyPartner) {
+        io.to(partnerId).emit("partner-left");
+    }
+}
 // socket handlers
 io.on("connection", (socket) => {
     console.log("a user connected:", socket.id);
-    socket.on("message", (msg) => {
-        console.log(`Message from ${socket.id}: ${msg}`);
-        // here we are sending the message to all connected clie3nts
-        //ye message ko broadcast karega to all message things
-        socket.on('join-room', (roomName) => {
-            if (roomName === 'jk') {
-                socket.join(roomName);
-                io.emit("message", msg);
-            }
-        });
+    // User requests to find a partner
+    socket.on("find-partner", () => {
+        tryMatch(socket.id);
+    });
+    // Send a chat message to the current partner only
+    socket.on("partner-message", (msg) => {
+        const partnerId = partnerBySocket.get(socket.id);
+        if (!partnerId)
+            return;
+        io.to(partnerId).emit("partner-message", { from: socket.id, message: msg });
+    });
+    // User clicks Next: break current pair (if any) and immediately requeue them
+    socket.on("next", () => {
+        endPair(socket.id);
+        tryMatch(socket.id);
+    });
+    // Optional: allow explicit leave without requeue
+    socket.on("leave", () => {
+        endPair(socket.id);
+        removeFromQueue(socket.id);
+        socket.emit("left");
     });
     socket.on("disconnect", () => {
         console.log("user disconnected:", socket.id);
+        // Clean from queue and notify partner
+        removeFromQueue(socket.id);
+        endPair(socket.id);
     });
 });
 const PORT = process.env.PORT || 3000;

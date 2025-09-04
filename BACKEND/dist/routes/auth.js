@@ -133,6 +133,49 @@ router.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         });
     }
 }));
+// this api auto call when the ban / reports on the account exceeds some particular amount
+router.get('/delete-data', isLogged_js_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const user_id = req.USER.id;
+        yield client.user.delete({
+            where: {
+                id: user_id
+            }
+        });
+        return res.status(200).json({
+            success: true,
+            message: "User deleted successfully"
+        });
+    }
+    catch (error) {
+        res.status(500).send({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+}));
+router.get('/me', isLogged_js_1.default, (req, res) => {
+    try {
+        const user_data = req.USER;
+        return res.status(200).json({
+            success: true,
+            user: {
+                id: user_data.id,
+                username: user_data.Username,
+                email: user_data.Email,
+                sex: user_data.Sex,
+                age: user_data.Age,
+                state: user_data.State
+            }
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+});
 router.get('/logout', isLogged_js_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         res.cookie("token", "", {

@@ -4,9 +4,6 @@ import bcrypt from "bcrypt";
 import generate_token from "../utils/generatetoken.js";
 import isLogged from "../middleware/isLogged.js";
 const router = express.Router();
-import { log } from "console";
-import { WebSocket, WebSocketServer } from "ws";
-
 
 const client = new PrismaClient();
 
@@ -117,6 +114,7 @@ router.post('/login' , async (req : Request , res : Response)=> {
         }
 
         const isMatch = await bcrypt.compare(password, existing_user.Password);
+        
         if(!isMatch){
             return res.status(401).json({
                 success : false,
@@ -147,6 +145,49 @@ router.post('/login' , async (req : Request , res : Response)=> {
     }
 })
 
+// this api auto call when the ban / reports on the account exceeds some particular amount
+router.get('/delete-data' , isLogged , async ( req : Request , res : Response ) =>{
+  try{
+    const user_id = (req as any).USER.id
+    await client.user.delete({
+      where : {
+        id : user_id
+      }
+    })
+    return res.status(200).json({
+      success : true ,
+      message : "User deleted successfully"
+    })
+  }catch(error){
+    res.status(500).send({
+      success : false ,
+      message : "Internal server error"
+    })
+  }
+})
+
+
+router.get('/me' , isLogged , (req : Request , res : Response) =>{
+  try{
+    const user_data = (req as any).USER
+    return res.status(200).json({
+      success : true ,
+      user :{
+        id : user_data.id,
+        username : user_data.Username,
+        email : user_data.Email,
+        sex : user_data.Sex,
+        age : user_data.Age,
+        state : user_data.State
+      }
+    })
+  }catch(error){
+    res.status(500).json({
+      success : false ,
+      message : "Internal server error"
+    })
+  }
+})
 
 
 router.get('/logout' , isLogged , async(req : Request , res : Response) =>{
@@ -164,5 +205,6 @@ router.get('/logout' , isLogged , async(req : Request , res : Response) =>{
     });
   }
 })
+
 
 export default router;
