@@ -3,12 +3,19 @@ import http from "http";
 import authRoutes from "./routes/auth";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import cors from "cors";
 import { Server } from "socket.io";  
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS configuration for API routes
+app.use(cors({
+  origin: "http://localhost:5173", // React frontend dev server
+  credentials: true, // Allow cookies
+}));
 
 // enable json + cookies
 app.use(express.json());
@@ -26,9 +33,6 @@ const io = new Server(server, {
   },
 });
 
-// =============================
-// Simple matchmaking state
-// =============================
 // waitingQueue holds socket IDs that clicked "Start" (find-partner)
 // but aren't paired yet. First-in is matched with the next newcomer.
 const waitingQueue: string[] = [];
@@ -113,6 +117,9 @@ io.on("connection", (socket) => {
     io.to(partnerId).emit("partner-message", { from: socket.id, message: msg });
   });
 
+
+
+
   // User clicks Next: break current pair (if any) and immediately requeue them
   socket.on("next", () => {
     // Inform current partner and clear mapping
@@ -120,6 +127,9 @@ io.on("connection", (socket) => {
     // Immediately try to find a new partner
     tryMatch(socket.id);
   });
+
+
+
 
   // Optional: allow explicit leave without requeue
   socket.on("leave", () => {
@@ -129,6 +139,9 @@ io.on("connection", (socket) => {
     socket.emit("left");
   });
 
+
+
+
   socket.on("disconnect", () => {
     console.log("user disconnected:", socket.id);
     // Clean from queue and notify partner
@@ -136,6 +149,9 @@ io.on("connection", (socket) => {
     endPair(socket.id);
   });
 });
+
+
+
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
