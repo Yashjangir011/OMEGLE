@@ -24,6 +24,10 @@ app.use(cookieParser());
 // your routes
 app.use("/api/auth", authRoutes);
 
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
 // socket.io setup with cors
 const io = new Server(server, {
   cors: {
